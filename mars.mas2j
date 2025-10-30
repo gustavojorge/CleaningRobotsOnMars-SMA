@@ -1,0 +1,10 @@
+MAS mars {
+
+    environment: MarsEnv
+
+    agents:
+        supervisor;
+        r1;
+        r2;
+        r3;
+}
