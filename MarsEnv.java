@@ -107,6 +107,18 @@ public class MarsEnv extends Environment {
             return false;
         }
 
+        // --- CORREÇÃO VISUAL R2 ---
+        // Garante que r2 (id 1) esteja sempre visível em sua célula (3,3)
+        // mesmo depois que outro agente (r1 ou r3) saiu de cima dela.
+        Location r2Loc = model.getAgPos(1); // Posição (3,3)
+        if (model.isFree(r2Loc)) { // Se o r1/r3 acabou de sair
+            try {
+                // Re-coloca r2 (id 1) no grid para ser desenhado
+                model.setAgPos(1, r2Loc); 
+            } catch (Exception e) {}
+        }
+        // --- FIM DA CORREÇÃO VISUAL ---
+
         // Atualiza percepções e notifica agentes
         updatePercepts();
         informAgsEnvironmentChanged();
