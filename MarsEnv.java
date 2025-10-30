@@ -4,7 +4,6 @@ import jason.environment.grid.GridWorldModel;
 import jason.environment.grid.GridWorldView;
 import jason.environment.grid.Location;
 
-// Imports for Unifier
 import jason.asSemantics.Unifier;
 import jason.asSyntax.Term;
 import jason.asSyntax.NumberTermImpl;
@@ -69,7 +68,6 @@ public class MarsEnv extends Environment {
                     int ix = (int) ((NumberTerm) action.getTerm(6)).solve();
                     int iy = (int) ((NumberTerm) action.getTerm(7)).solve();
 
-                    // Extract agent's variables (D1, D3)
                     Term d1Var = action.getTerm(8);
                     Term d3Var = action.getTerm(9);
 
@@ -78,7 +76,6 @@ public class MarsEnv extends Environment {
                     int d3 = Math.abs(x3 - gx) + Math.abs(y3 - gy) +
                              Math.abs(gx - ix) + Math.abs(gy - iy);
 
-                    // Unify (fill in) the agent's variables
                     Unifier unifier = new Unifier();
                     unifier.unifies(d1Var, new NumberTermImpl(d1));
                     unifier.unifies(d3Var, new NumberTermImpl(d3));
@@ -98,10 +95,19 @@ public class MarsEnv extends Environment {
             return false;
         }
 
-        Location r2Loc = model.getAgPos(1); 
+        Location r2Loc = model.getAgPos(2); 
         if (model.isFree(r2Loc)) {
             try {
-                model.setAgPos(1, r2Loc); 
+                model.setAgPos(2, r2Loc); 
+            } catch (Exception e) {}
+        }
+
+        if (action.getFunctor().equals("move_towards")) {
+            try {
+                int id = model.getAgentId(ag);
+                if (id != 2) { 
+                    model.setAgPos(id, model.getAgPos(id)); 
+                }
             } catch (Exception e) {}
         }
 
@@ -119,10 +125,10 @@ public class MarsEnv extends Environment {
         clearPercepts("r2");
         clearPercepts("r3");
 
-        Location r2Loc = model.getAgPos(1); // Get incinerator location
+        Location r2Loc = model.getAgPos(2); // Get incinerator location
         
         for(int i=0; i<model.getNbOfAgs(); i++){
-            String agName = "r"+(i+1);
+            String agName = model.getAgName(i); 
             Location loc = model.getAgPos(i);
             Literal posLit = Literal.parseLiteral("pos(" + agName + "," + loc.x + "," + loc.y + ")");
             addPercept(agName, posLit);
@@ -141,20 +147,20 @@ public class MarsEnv extends Environment {
             }
         }
 
-        // Add garbage/carrying percepts for r1 and r3
+        // Add garbage/carrying percepts
         for(int i=0; i<model.getNbOfAgs(); i++){
-            String agName = "r"+(i+1);
+            String agName = model.getAgName(i);
             Location loc = model.getAgPos(i);
             
             if(model.hasObject(GARB, loc)){
                 addPercept(agName, Literal.parseLiteral("garbage(" + loc.x + "," + loc.y + ")"));
             }
             
-            if((i == 0 || i == 2) && model.hasGarb[i]){
+            if((i == 0 || i == 1) && model.hasGarb[i]){ 
                 addPercept(agName, Literal.parseLiteral("carrying(" + agName + ")"));
             }
 
-            if(i==1 && model.hasObject(GARB, loc)){
+            if(i==2 && model.hasObject(GARB, loc)){
                 addPercept(agName, Literal.parseLiteral("garbage(r2)"));
             }
         }
@@ -163,16 +169,16 @@ public class MarsEnv extends Environment {
     class MarsModel extends GridWorldModel {
         public static final int MErr = 2;
         int nerr;
-        boolean[] hasGarb = new boolean[3]; // 0=r1, 1=r2, 2=r3
+        boolean[] hasGarb = new boolean[3]; // 0=r1, 1=r3, 2=r2
         Random random = new Random(System.currentTimeMillis());
 
         private MarsModel() {
             super(GSize, GSize, 3); 
 
             try {
-                setAgPos(0, 0, 0);        // r1
-                setAgPos(1, 3, 3);        // r2 incinerator
-                setAgPos(2, GSize-1, GSize-1);  // r3
+                setAgPos(0, 0, 0);        
+                setAgPos(1, GSize-1, GSize-1);  
+                setAgPos(2, 3, 3);        
             } catch(Exception e){ e.printStackTrace(); }
 
             add(GARB, 3, 0);
@@ -219,7 +225,7 @@ public class MarsEnv extends Environment {
         }
 
         void burnGarb(){
-            Location r2Loc = getAgPos(1); // r2's location
+            Location r2Loc = getAgPos(2); 
             if(hasObject(GARB, r2Loc)){
                 remove(GARB, r2Loc);
                 logger.info("r2 burned garbage at (" + r2Loc.x + "," + r2Loc.y + ")");
@@ -229,10 +235,19 @@ public class MarsEnv extends Environment {
         private int getAgentId(String agName){
             switch(agName){
                 case "r1": return 0;
-                case "r2": return 1;
-                case "r3": return 2;
+                case "r3": return 1; 
+                case "r2": return 2;
             }
             return 0;
+        }
+
+        private String getAgName(int id) {
+            switch(id) {
+                case 0: return "r1";
+                case 1: return "r3";
+                case 2: return "r2";
+            }
+            return "";
         }
     }
 
@@ -251,11 +266,11 @@ public class MarsEnv extends Environment {
 
         @Override
         public void drawAgent(Graphics g, int x, int y, Color c, int id){
-            String label = "R" + (id+1);
-            
-            if(id==1){ c=Color.red; label="R2"; }
-            else if(id==0){ c=Color.yellow; label="R1"; } 
-            else if(id==2){ c=Color.magenta; label="R3"; }
+            String label = "R?";
+
+            if(id==2){ c=Color.red; label="R2"; }
+            else if(id==0){ c=Color.yellow; label="R1"; }
+            else if(id==1){ c=Color.magenta; label="R3"; }
 
             super.drawAgent(g, x, y, c, -1);
             g.setColor(Color.black);

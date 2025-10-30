@@ -2,8 +2,7 @@
 
 !iniciar.
 +!iniciar : true <-
-    .print("[r2] === INCINERATOR STARTING ===").
-
+    .print("[r2] ============ INCINERATOR STARTING ============").
 // Burn upon request
 +!incinerar_lixo : true <-
     .print("[r2] Incineration task received...");

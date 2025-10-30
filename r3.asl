@@ -2,7 +2,7 @@
 
 !iniciar.
 +!iniciar <-
-    .print("[r3] === COLLECTOR (r3) STARTING ===").
+    .print("[r3] ============ COLLECTOR (r3) STARTING ============").
 
 // Main plan
 +!coletar_lixo(X,Y,IX,IY) <-
