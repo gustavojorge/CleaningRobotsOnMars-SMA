@@ -4,11 +4,10 @@ import jason.environment.grid.GridWorldModel;
 import jason.environment.grid.GridWorldView;
 import jason.environment.grid.Location;
 
-// --- CORREÇÃO 1: Imports necessários para o Unifier ---
+// Imports for Unifier
 import jason.asSemantics.Unifier;
 import jason.asSyntax.Term;
 import jason.asSyntax.NumberTermImpl;
-// --- Fim da Correção 1 ---
 
 import java.awt.Color;
 import java.awt.Font;
@@ -20,6 +19,10 @@ public class MarsEnv extends Environment {
 
     public static final int GSize = 7;       // grid size
     public static final int GARB = 16;       // garbage code in grid model
+    
+    // --- CORREÇÃO: Códigos ANSI removidos ---
+    // public static final String ANSI_RESET = "\u001B[0m";
+    // public static final String ANSI_GREEN = "\u001B[32m";
 
     static Logger logger = Logger.getLogger(MarsEnv.class.getName());
 
@@ -36,6 +39,7 @@ public class MarsEnv extends Environment {
 
     @Override
     public boolean executeAction(String ag, Structure action) {
+        // --- CORREÇÃO: Log limpo, sem cor e sem duplicata ---
         logger.info(ag + " doing: " + action);
         try {
             switch(action.getFunctor()) {
@@ -52,7 +56,7 @@ public class MarsEnv extends Environment {
                 }
                 case "drop": {
                     if(action.getTerm(0).toString().equals("garb"))
-                        model.dropGarb(ag);
+                        model.dropGarb(ag); 
                     break;
                 }
                 case "burn": {
@@ -61,7 +65,7 @@ public class MarsEnv extends Environment {
                     break;
                 }
                 case "compute_distances": {
-                    // Extrai Posições
+                    // Extract Positions
                     int x1 = (int) ((NumberTerm) action.getTerm(0)).solve();
                     int y1 = (int) ((NumberTerm) action.getTerm(1)).solve();
                     int x3 = (int) ((NumberTerm) action.getTerm(2)).solve();
@@ -71,34 +75,31 @@ public class MarsEnv extends Environment {
                     int ix = (int) ((NumberTerm) action.getTerm(6)).solve();
                     int iy = (int) ((NumberTerm) action.getTerm(7)).solve();
 
-                    // Extrai as *Variáveis* (D1, D3) que o agente enviou
+                    // Extract agent's variables (D1, D3)
                     Term d1Var = action.getTerm(8);
                     Term d3Var = action.getTerm(9);
 
-                    // Calcula
+                    // Calculate
                     int d1 = Math.abs(x1 - gx) + Math.abs(y1 - gy) +
                              Math.abs(gx - ix) + Math.abs(gy - iy);
                     int d3 = Math.abs(x3 - gx) + Math.abs(y3 - gy) +
                              Math.abs(gx - ix) + Math.abs(gy - iy);
 
-                    // Unifica (preenche) as variáveis D1 e D3 no agente
+                    // Unify (fill in) the agent's variables
                     Unifier unifier = new Unifier();
                     unifier.unifies(d1Var, new NumberTermImpl(d1));
                     unifier.unifies(d3Var, new NumberTermImpl(d3));
                     
+                    // --- CORREÇÃO: Log limpo ---
                     logger.info("Distances calculated and unified: D1=" + d1 + ", D3=" + d3);
                     break;
                 }
                 
-                // --- AÇÃO DE SINCRONIZAÇÃO ADICIONADA ---
+                // --- SYNC ACTION ---
                 case "sync_percepts": {
-                    // Esta ação não faz nada. 
-                    // Seu único propósito é forçar o ciclo updatePercepts()
-                    // a ser chamado no final do executeAction,
-                    // atualizando as crenças do supervisor.
+                    // This action does nothing.
                     break;
                 }
-                // --- FIM DA ADIÇÃO ---
                 
                 default: return false;
             }
@@ -107,19 +108,15 @@ public class MarsEnv extends Environment {
             return false;
         }
 
-        // --- CORREÇÃO VISUAL R2 ---
-        // Garante que r2 (id 1) esteja sempre visível em sua célula (3,3)
-        // mesmo depois que outro agente (r1 ou r3) saiu de cima dela.
-        Location r2Loc = model.getAgPos(1); // Posição (3,3)
-        if (model.isFree(r2Loc)) { // Se o r1/r3 acabou de sair
+        // --- R2 VISUAL FIX ---
+        Location r2Loc = model.getAgPos(1); // r2's location (3,3)
+        if (model.isFree(r2Loc)) { // If r1/r3 just moved off
             try {
-                // Re-coloca r2 (id 1) no grid para ser desenhado
                 model.setAgPos(1, r2Loc); 
             } catch (Exception e) {}
         }
-        // --- FIM DA CORREÇÃO VISUAL ---
 
-        // Atualiza percepções e notifica agentes
+        // Update percepts and notify agents
         updatePercepts();
         informAgsEnvironmentChanged();
 
@@ -127,21 +124,19 @@ public class MarsEnv extends Environment {
         return true;
     }
 
+    /**
+     * This method is crucial for synchronizing the agents' beliefs with the model.
+     * It clears all old percepts and adds only the current ones.
+     */
     void updatePercepts() {
-        // --- CORREÇÃO 2: Limpa percepções "fantasmas" dos agentes ---
-        
-        // --- ESTE É O BUG CORRIGIDO ---
-        // clearPercepts(); // Linha antiga e errada
-        clearPercepts("supervisor"); // Linha correta
-        // --- FIM DA CORREÇÃO ---
-
+        // --- PERCEPTION CLEANUP ---
+        clearPercepts("supervisor"); // Correct line: Clears supervisor's old percepts
         clearPercepts("r1");
         clearPercepts("r2");
         clearPercepts("r3");
-        // --- Fim da Correção 2 ---
 
-        // Adiciona posições de todos os agentes
-        Location r2Loc = model.getAgPos(1); // Pega a posição do incinerador (r2)
+        // Add agent positions
+        Location r2Loc = model.getAgPos(1); // Get incinerator (r2) location
         
         for(int i=0; i<model.getNbOfAgs(); i++){
             String agName = "r"+(i+1);
@@ -151,11 +146,10 @@ public class MarsEnv extends Environment {
             addPercept("supervisor", posLit);
         }
 
-        // Adiciona apenas lixo que ainda existe no grid
+        // Add perceptions for existing garbage
         for(int x=0; x<GSize; x++){
             for(int y=0; y<GSize; y++){
                 
-                // Verifica se o lixo NÃO ESTÁ na posição do incinerador (r2)
                 boolean notAtIncinerator = !(x == r2Loc.x && y == r2Loc.y);
                 
                 if(model.hasObject(GARB, x, y) && notAtIncinerator){
@@ -164,19 +158,19 @@ public class MarsEnv extends Environment {
             }
         }
 
-        // Adiciona percepção de lixo e carrying para r1 e r3
+        // Add garbage/carrying percepts for r1 and r3
         for(int i=0; i<model.getNbOfAgs(); i++){
             String agName = "r"+(i+1);
             Location loc = model.getAgPos(i);
+            
             if(model.hasObject(GARB, loc)){
                 addPercept(agName, Literal.parseLiteral("garbage(" + loc.x + "," + loc.y + ")"));
             }
-            // Apenas r1 (id 0) e r3 (id 2) podem carregar lixo
+            
             if((i == 0 || i == 2) && model.hasGarb[i]){
                 addPercept(agName, Literal.parseLiteral("carrying(" + agName + ")"));
             }
 
-            // r2 incinerador
             if(i==1 && model.hasObject(GARB, loc)){
                 addPercept(agName, Literal.parseLiteral("garbage(r2)"));
             }
@@ -186,19 +180,19 @@ public class MarsEnv extends Environment {
     class MarsModel extends GridWorldModel {
         public static final int MErr = 2;
         int nerr;
-        boolean[] hasGarb = new boolean[3];
+        boolean[] hasGarb = new boolean[3]; // 0=r1, 1=r2, 2=r3
         Random random = new Random(System.currentTimeMillis());
 
         private MarsModel() {
-            super(GSize, GSize, 3);
+            super(GSize, GSize, 3); // 3 agents
 
             try {
                 setAgPos(0, 0, 0);        // r1
-                setAgPos(1, 3, 3);        // r2 incinerador
+                setAgPos(1, 3, 3);        // r2 incinerator
                 setAgPos(2, GSize-1, GSize-1);  // r3
             } catch(Exception e){ e.printStackTrace(); }
 
-            // Inicializa lixo
+            // Add initial garbage
             add(GARB, 3, 0);
             add(GARB, 1, 2);
             add(GARB, 5, 4);
@@ -207,7 +201,7 @@ public class MarsEnv extends Environment {
         }
 
         void moveTowards(String ag, int x, int y) throws Exception {
-            if(ag.equals("r2")) return;  // r2 fixo
+            if(ag.equals("r2")) return;  // r2 is stationary
 
             int id = getAgentId(ag);
             Location loc = getAgPos(id);
@@ -224,9 +218,11 @@ public class MarsEnv extends Environment {
                     remove(GARB, loc);
                     nerr=0;
                     hasGarb[id] = true;
+                    // --- CORREÇÃO: Log limpo ---
                     logger.info(ag + " picked garbage at ("+loc.x+","+loc.y+")");
                 } else {
                     nerr++;
+                    // --- CORREÇÃO: Log limpo ---
                     logger.info(ag + " failed to pick garbage (attempt "+nerr+"/"+MErr+")");
                 }
             }
@@ -238,14 +234,16 @@ public class MarsEnv extends Environment {
             if(hasGarb[id]){
                 hasGarb[id] = false;
                 add(GARB, loc);
+                // --- CORREÇÃO: Log limpo ---
                 logger.info(ag + " dropped garbage at ("+loc.x+","+loc.y+")");
             }
         }
 
         void burnGarb(){
-            Location r2Loc = getAgPos(1);
+            Location r2Loc = getAgPos(1); // r2's location
             if(hasObject(GARB, r2Loc)){
                 remove(GARB, r2Loc);
+                // --- CORREÇÃO: Log limpo ---
                 logger.info("r2 burned garbage at (" + r2Loc.x + "," + r2Loc.y + ")");
             }
         }
@@ -256,7 +254,7 @@ public class MarsEnv extends Environment {
                 case "r2": return 1;
                 case "r3": return 2;
             }
-            return 0;
+            return 0; // Default
         }
     }
 
@@ -276,9 +274,14 @@ public class MarsEnv extends Environment {
         @Override
         public void drawAgent(Graphics g, int x, int y, Color c, int id){
             String label = "R" + (id+1);
-            if(id==1){ c=Color.red; label="R2"; }
-            else if(id==0){ c=Color.yellow; label="R1"; }
-            else if(id==2){ c=Color.green; label="R3"; }
+            
+            // --- CORREÇÃO DAS CORES DO GRID ---
+            // Assegura que as cores pedidas sejam usadas
+            if(id==1){ c=Color.red; label="R2"; } // R2 Vermelho
+            else if(id==0){ c=Color.yellow; label="R1"; } // R1 Amarelo
+            else if(id==2){ c=Color.magenta; label="R3"; } // R3 Roxo/Magenta
+            // --- FIM DA CORREÇÃO ---
+            
             super.drawAgent(g, x, y, c, -1);
             g.setColor(Color.black);
             super.drawString(g, x, y, defaultFont, label);

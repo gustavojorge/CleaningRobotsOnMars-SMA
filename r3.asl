@@ -1,50 +1,48 @@
-// r3.asl - Segundo robô coletor
+// r3.asl - Collector Robot 3
 
 !iniciar.
 +!iniciar <-
-    .print("[r3] === ROBÔ COLETOR (r3) INICIANDO ===").
+    .print("[r3] === COLLECTOR (r3) STARTING ===").
 
-// Plano principal
+// Main plan
 +!coletar_lixo(X,Y,IX,IY) <-
-    .print("[r3] Nova tarefa: lixo em (", X, ",", Y, ")");
+    .print("[r3] New task: garbage at (", X, ",", Y, ")");
     !ir_para(X, Y);
     !pegar_lixo(X,Y);
     !ir_para(IX, IY);
     drop(garb);
-    .print("[r3] Lixo entregue ao incinerador");
+    .print("[r3] Garbage delivered to incinerator");
     .send(r2, achieve, incinerar_lixo);
-    .wait(800); // Aguarda incineração
+    .wait(800); // Wait for incineration
     
-    // --- MUDANÇA: SAIR DA POSIÇÃO DO INCINERADOR ---
+    // Move to parking spot
     !sair_do_incinerador(IX, IY);
-    // --- FIM DA MUDANÇA ---
     
     .send(supervisor, tell, concluido(X,Y));
-    .print("[r3] Tarefa concluída!").
+    .print("[r3] Task complete!").
 
-// --- NOVO PLANO (MODIFICADO) ---
-// Move para uma posição adjacente (ex: Y+1)
+// Plan: move to parking spot
 +!sair_do_incinerador(IX, IY) <-
-    // --- CORREÇÃO DO BUG ---
-    // r1 estaciona em (3,2). r3 deve estacionar em outro local.
+    // r1 parks at (3,2), r3 parks here.
     DropY = IY + 1; // (3,3) -> (3,4)
-    // --- FIM DA CORREÇÃO ---
     DropX = IX;
-    .print("[r3] Saindo da posição do incinerador para (",DropX,",",DropY,")");
+    .print("[r3] Moving off incinerator to (",DropX,",",DropY,")");
     !ir_para(DropX, DropY).
-// --- FIM DO NOVO PLANO ---
 
-// Movimento (CORRIGIDO)
+// --- Helpers ---
+
+// Move
 +!ir_para(X, Y) : pos(r3, X, Y).
 +!ir_para(X, Y) <-
     move_towards(X, Y);
-    .wait(300); // <-- Adiciona uma pausa para o movimento ocorrer
-    !ir_para(X, Y). // Tenta novamente (agora recursão controlada)
+    .wait(300); // Pause for movement to occur
+    !ir_para(X, Y). // Recursive move call
 
-// Coleta com verificação de sucesso
-+!pegar_lixo(X,Y) : carrying(r3).
+// Pick up garbage
++!pegar_lixo(X,Y) : carrying(r3) <-
+    .print("[r3] Garbage collected!").
 +!pegar_lixo(X,Y) : not garbage(X,Y) & pos(r3,X,Y) <-
-    .print("[r3] AVISO: Lixo não encontrado em (",X,",",Y,")").
+    .print("[r3] WARNING: Garbage not found at (",X,",",Y,")").
 +!pegar_lixo(X,Y) <-
     pick(garb);
     .wait(400);

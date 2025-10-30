@@ -1,18 +1,18 @@
-// r2.asl - Incinerador de lixo (Versão Real)
+// r2.asl - Incinerator Agent
 
 !iniciar.
 +!iniciar : true <-
-    .print("[r2] === INCINERADOR INICIANDO ===").
+    .print("[r2] === INCINERATOR STARTING ===").
 
-// Queima ao receber comando
+// Plan: Burn upon request
 +!incinerar_lixo : true <-
-    .print("[r2] Recebido lixo para incineração...");
+    .print("[r2] Incineration task received...");
     .wait(500);
     burn(garb);
-    .print("[r2] Lixo incinerado com sucesso!").
+    .print("[r2] Garbage incinerated successfully!").
 
-// Queima lixo solto na posição dele
+// Plan: Burn garbage dropped at location
 +garbage(r2) <-
-    .print("[r2] Lixo detectado na minha posição! Incinerando...");
+    .print("[r2] Garbage detected at incinerator! Let's incinerate...");
     burn(garb);
-    .print("[r2] Lixo incinerado com sucesso!").
+    .print("[r2] Garbage incinerated successfully!").

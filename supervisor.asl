@@ -1,71 +1,72 @@
-// supervisor.asl (Corrigido)
+// supervisor.asl
 
 !iniciar.
 +!iniciar <-
-    .print("[supervisor] === SUPERVISOR INICIANDO ===");
-    .print("[supervisor] Sistema de coleta sequencial ativado");
+    .print("[supervisor] === SUPERVISOR STARTING ===");
+    .print("[supervisor] Sequential collection system activated");
     .wait(1000);
     !!processar_proximo_lixo.
 
-// Loop principal: processa um lixo por vez
+// Main loop: process one garbage item at a time
 +!processar_proximo_lixo <-
-    // --- CORREÇÃO: FORÇA A SINCRONIZAÇÃO DAS PERCEPÇÕES ---
-    // Esta ação força o agente a ler o estado mais recente do MarsEnv
-    // ANTES de executar o .findall, limpando lixos "fantasmas".
+    // Force perception sync
+    // This action forces the agent to read the latest state from MarsEnv
+    // BEFORE running .findall, clearing "ghost" garbage.
     sync_percepts; 
     
     .findall([X,Y], garbage(X,Y), TodosLixos);
     !pegar_primeiro_disponivel(TodosLixos).
 
-// Se há lixos, pega o primeiro que NÃO está sendo processado
+// If garbage list is empty, wait and retry
 +!pegar_primeiro_disponivel([]) <-
-    .print("[supervisor] >>> Ambiente limpo! Aguardando novos lixos...");
+    .print("[supervisor] >>> Grid clean! Waiting for new garbage...");
     .wait(2000);
     !!processar_proximo_lixo.
 
+// If garbage list is not empty, find first available item
 +!pegar_primeiro_disponivel([[X,Y]|Resto]) : processando(X,Y) <-
-    // Lixo (X,Y) está sendo processado, tenta o próximo da lista
+    // Item (X,Y) is busy, try next in list
     !pegar_primeiro_disponivel(Resto).
 
 +!pegar_primeiro_disponivel([[X,Y]|_]) : not processando(X,Y) <-
-    // Lixo (X,Y) está livre, processa ele
+    // Item (X,Y) is free, process it
     !processar_lixo(X,Y).
 
-// Processa um único lixo
+// Plan: Process a single garbage item
 +!processar_lixo(X,Y) : pos(r1,X1,Y1) & pos(r3,X3,Y3) & pos(r2,IX,IY) <-
-    +processando(X,Y); // Marca lixo como "sendo processado"
+    +processando(X,Y); // Mark item as "in progress"
     
-    .print("-------------------------------------------");
-    .print("[supervisor] PROCESSANDO: Lixo em (", X, ",", Y, ")");
-    .print("[supervisor]   r1 em (", X1, ",", Y1, ")");
-    .print("[supervisor]   r3 em (", X3, ",", Y3, ")");
+    .print("-----------------------------------------------------------------------------------");
+    .print("[supervisor] PROCESSING: Garbage at (", X, ",", Y, ")");
+    .print("[supervisor]   r1 at (", X1, ",", Y1, ")");
+    .print("[supervisor]   r3 at (", X3, ",", Y3, ")");
     
-    // Calcula distâncias
+    // Calculate distances
     !calcular_dist(X1,Y1,X,Y,IX,IY,D1);
     !calcular_dist(X3,Y3,X,Y,IX,IY,D3);
-    .print("[supervisor]   Distância r1: ", D1, " | r3: ", D3);
+    .print("[supervisor]   Distance r1: ", D1, " | r3: ", D3);
     
-    // Decide e envia
+    // Decide and dispatch
     !decidir_e_enviar(X,Y,IX,IY,D1,D3);
     
-    // AGUARDA conclusão
-    .print("[supervisor]   Aguardando confirmação...");
+    // Wait for completion message
+    .print("[supervisor]   Waiting for completion...");
     .wait(concluido(X,Y), 60000);
     
-    // Limpa estados
-    -concluido(X,Y); // Limpa a mensagem de crença
-    -processando(X,Y); // Libera o lixo para (caso reapareça)
+    // Clean up states
+    -concluido(X,Y); 
+    -processando(X,Y); // Free up this garbage ID
     
-    .print("[supervisor] ✓ Lixo (",X,",",Y,") concluído");
-    .print("-------------------------------------------");
+    .print("[supervisor] Task (",X,",",Y,") complete");
+    .print("-----------------------------------------------------------------------------------");
     
-    // Pequeno delay para robôs finalizarem
+    // Short delay for robots to finish moving
     .wait(1000);
     
-    // Processa próximo
+    // Process next
     !!processar_proximo_lixo.
 
-// Calcula distância Manhattan
+// Plan: Calculate Manhattan distance
 +!calcular_dist(XR,YR,GX,GY,IX,IY,Dist) <-
     !abs(XR-GX, DX1);
     !abs(YR-GY, DY1);
@@ -76,22 +77,26 @@
 +!abs(N, R) : N >= 0 <- R = N.
 +!abs(N, R) : N < 0 <- R = -N.
 
-// Decide qual robô
+// Plan: Decide agent
 +!decidir_e_enviar(X,Y,IX,IY,D1,D3) : D1 <= D3 <-
-    .print("[supervisor] DECISÃO: r1");
+    .print("[supervisor] DECISION: Assigning to r1");
     .send(r1, achieve, coletar_lixo(X,Y,IX,IY)).
 
 +!decidir_e_enviar(X,Y,IX,IY,D1,D3) : D3 < D1 <-
-    .print("[supervisor] DECISÃO: r3");
+    .print("[supervisor] DECISION: Assigning to r3");
     .send(r3, achieve, coletar_lixo(X,Y,IX,IY)).
 
-// Recebe confirmação (para satisfazer o .wait)
+// --- CORREÇÃO DO BUG DE TIMEOUT ---
+// Este plano é acionado pela MENSAGEM do robô.
+// Ele deve ADICIONAR a CRENÇA que o plano .wait está esperando.
 +concluido(X,Y)[source(Ag)] <-
-    .print("[supervisor] ✓ Confirmação de ", Ag, " para (",X,",",Y,")").
+    .print("[supervisor] Confirmation from ", Ag, " for (",X,",",Y,")");
+    +concluido(X,Y). // ADICIONA A CRENÇA para satisfazer o .wait
+// --- FIM DA CORREÇÃO ---
 
-// Erro: não encontrou posições (plano de fallback)
+// Fallback plan: Error finding agent positions
 +!processar_lixo(X,Y) <-
-    .print("[supervisor] ERRO: Não consegui processar (",X,",",Y,") - posições não encontradas");
+    .print("[supervisor] ERROR: Failed to process (",X,",",Y,") - positions not found");
     -processando(X,Y);
     .wait(1000);
     !!processar_proximo_lixo.
