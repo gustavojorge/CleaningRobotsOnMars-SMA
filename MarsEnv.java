@@ -17,7 +17,8 @@ import java.util.logging.Logger;
 public class MarsEnv extends Environment {
 
     public static final int GSize = 7;       
-    public static final int GARB = 16;       
+    public static final int GARB = 16;
+    public static final int GOLD = 32; // Novo recurso
     
     static Logger logger = Logger.getLogger(MarsEnv.class.getName());
 
@@ -44,18 +45,19 @@ public class MarsEnv extends Environment {
                     break;
                 }
                 case "pick": {
-                    if(action.getTerm(0).toString().equals("garb"))
-                        model.pickGarb(ag);
+                    model.pickItem(ag);
                     break;
                 }
                 case "drop": {
-                    if(action.getTerm(0).toString().equals("garb"))
-                        model.dropGarb(ag); 
+                    model.dropItem(ag);
                     break;
                 }
                 case "burn": {
-                    if(action.getTerm(0).toString().equals("garb"))
-                        model.burnGarb();
+                    model.burnGarb();
+                    break;
+                }
+                case "store": {
+                    model.storeGold();
                     break;
                 }
                 case "compute_distances": {
@@ -135,33 +137,50 @@ public class MarsEnv extends Environment {
             addPercept("coordinator", posLit);
         }
 
-        // Add perceptions for existing garbage
+        // Add perceptions for existing items (garbage or gold)
         for(int x=0; x<GSize; x++){
             for(int y=0; y<GSize; y++){
                 
                 boolean notAtIncinerator = !(x == r2Loc.x && y == r2Loc.y);
                 
+                // PERCEPTION OF GARBAGE
                 if(model.hasObject(GARB, x, y) && notAtIncinerator){
                     addPercept("coordinator", Literal.parseLiteral("garbage(" + x + "," + y + ")"));
+                }
+                // PERCEPTION OF GOLD
+                if(model.hasObject(GOLD, x, y) && notAtIncinerator){
+                    addPercept("coordinator", Literal.parseLiteral("gold(" + x + "," + y + ")"));
                 }
             }
         }
 
-        // Add garbage/carrying percepts
+        // Add item/carrying percepts
         for(int i=0; i<model.getNbOfAgs(); i++){
             String agName = model.getAgName(i);
             Location loc = model.getAgPos(i);
-            
+
+            // Perception Local of item (for r1/r3)
             if(model.hasObject(GARB, loc)){
-                addPercept(agName, Literal.parseLiteral("garbage(" + loc.x + "," + loc.y + ")"));
+                addPercept(agName, Literal.parseLiteral("item(garbage)"));
             }
-            
-            if((i == 0 || i == 1) && model.hasGarb[i]){ 
-                addPercept(agName, Literal.parseLiteral("carrying(" + agName + ")"));
+            if(model.hasObject(GOLD, loc)){
+                addPercept(agName, Literal.parseLiteral("item(gold)"));
             }
 
+            // Perception of carrying (for r1/r3)
+            if((i == 0 || i == 1) && model.carryingType[i] == GARB){ 
+                addPercept(agName, Literal.parseLiteral("carrying(garbage)"));
+            }
+            if((i == 0 || i == 1) && model.carryingType[i] == GOLD){ 
+                addPercept(agName, Literal.parseLiteral("carrying(gold)"));
+            }
+
+            // Perception of item at incinerator (for r2)
             if(i==2 && model.hasObject(GARB, loc)){
-                addPercept(agName, Literal.parseLiteral("garbage(r2)"));
+                addPercept(agName, Literal.parseLiteral("item_at_incinerator(garbage)"));
+            }
+            if(i==2 && model.hasObject(GOLD, loc)){
+                addPercept(agName, Literal.parseLiteral("item_at_incinerator(gold)"));
             }
         }
     }
@@ -169,23 +188,26 @@ public class MarsEnv extends Environment {
     class MarsModel extends GridWorldModel {
         public static final int MErr = 2;
         int nerr;
-        boolean[] hasGarb = new boolean[3]; // 0=r1, 1=r3, 2=r2
+        // 0=empty, 16=GARB, 32=GOLD
+        int[] carryingType = new int[3]; // 0=r1, 1=r3, 2=r2
         Random random = new Random(System.currentTimeMillis());
 
         private MarsModel() {
             super(GSize, GSize, 3); 
 
             try {
-                setAgPos(0, 0, 0);        
-                setAgPos(1, GSize-1, GSize-1);  
-                setAgPos(2, 3, 3);        
+                setAgPos(0, 0, 0);              // r1 -> ID 0
+                setAgPos(1, GSize-1, GSize-1);  // r3 -> ID 1
+                setAgPos(2, 3, 3);              // r2 incinerator -> ID 2
             } catch(Exception e){ e.printStackTrace(); }
 
             add(GARB, 3, 0);
             add(GARB, 1, 2);
             add(GARB, 5, 4);
-            add(GARB, 2, 6);
-            add(GARB, 6, 3);
+            add(GOLD, 2, 6); 
+            add(GOLD, 6, 3);
+            add(GARB, 4, 6);
+            add(GOLD, 6, 0);
         }
 
         void moveTowards(String ag, int x, int y) throws Exception {
@@ -198,37 +220,69 @@ public class MarsEnv extends Environment {
             setAgPos(id, loc);
         }
 
-        void pickGarb(String ag) {
+        void pickItem(String ag) {
             int id = getAgentId(ag);
             Location loc = getAgPos(id);
+            if(carryingType[id] != 0) return; 
+
             if(hasObject(GARB, loc)){
                 if(random.nextBoolean() || nerr==MErr){
                     remove(GARB, loc);
                     nerr=0;
-                    hasGarb[id] = true;
+                    carryingType[id] = GARB; 
                     logger.info(ag + " picked garbage at ("+loc.x+","+loc.y+")");
                 } else {
                     nerr++;
                     logger.info(ag + " failed to pick garbage (attempt "+nerr+"/"+MErr+")");
                 }
+            } else if (hasObject(GOLD, loc)) {
+                if(random.nextBoolean() || nerr==MErr){
+                    remove(GOLD, loc);
+                    nerr=0;
+                    carryingType[id] = GOLD;
+                    logger.info(ag + " picked gold at ("+loc.x+","+loc.y+")");
+                } else {
+                    nerr++;
+                    logger.info(ag + " failed to pick gold (attempt "+nerr+"/"+MErr+")");
+                }
             }
         }
 
-        void dropGarb(String ag){
+        void dropItem(String ag){
             int id = getAgentId(ag);
             Location loc = getAgPos(id); 
-            if(hasGarb[id]){
-                hasGarb[id] = false;
+            if(carryingType[id] == GARB){
+                carryingType[id] = 0;
                 add(GARB, loc);
                 logger.info(ag + " dropped garbage at ("+loc.x+","+loc.y+")");
+            } else if (carryingType[id] == GOLD) {
+                carryingType[id] = 0;
+                add(GOLD, loc);
+                logger.info(ag + " dropped gold at ("+loc.x+","+loc.y+")");
             }
         }
 
+        // Burns GARBAGE (with safety lock)
         void burnGarb(){
             Location r2Loc = getAgPos(2); 
-            if(hasObject(GARB, r2Loc)){
+            // SAFETY LOCK: Only burns if there is garbage AND no gold
+            if(hasObject(GARB, r2Loc) && !hasObject(GOLD, r2Loc)){
                 remove(GARB, r2Loc);
                 logger.info("r2 burned garbage at (" + r2Loc.x + "," + r2Loc.y + ")");
+            } else if (hasObject(GOLD, r2Loc)) {
+                logger.warning("r2: BURN FAILED! Cannot burn while gold is present!");
+            } else {
+                logger.info("r2: Nothing to burn.");
+            }
+        }
+        
+        void storeGold() {
+            Location r2Loc = getAgPos(2); 
+            if(hasObject(GOLD, r2Loc)){
+                remove(GOLD, r2Loc);
+                logger.info("r2 stored gold at (" + r2Loc.x + "," + r2Loc.y + ")");
+            } else {
+                logger.info("r2: Nothing to store.");
             }
         }
 
@@ -262,6 +316,7 @@ public class MarsEnv extends Environment {
         @Override
         public void draw(Graphics g, int x, int y, int object){
             if(object == MarsEnv.GARB) drawGarb(g, x, y);
+            if(object == MarsEnv.GOLD) drawGold(g, x, y); 
         }
 
         @Override
@@ -269,10 +324,11 @@ public class MarsEnv extends Environment {
             String label = "R?";
 
             if(id==2){ c=Color.red; label="R2"; }
-            else if(id==0){ c=Color.yellow; label="R1"; }
+            else if(id==0){ c=Color.yellow; label="R1"; } 
             else if(id==1){ c=Color.magenta; label="R3"; }
 
             super.drawAgent(g, x, y, c, -1);
+            
             g.setColor(Color.black);
             super.drawString(g, x, y, defaultFont, label);
         }
@@ -281,6 +337,14 @@ public class MarsEnv extends Environment {
             super.drawObstacle(g, x, y);
             g.setColor(Color.white);
             drawString(g, x, y, defaultFont, "G");
+        }
+        
+        public void drawGold(Graphics g, int x, int y){
+            g.setColor(Color.yellow);             
+            g.fillRect(x * cellSizeW, y * cellSizeH, cellSizeW, cellSizeH);
+            
+            g.setColor(Color.black); 
+            drawString(g, x, y, defaultFont, "Au");
         }
     }
 }

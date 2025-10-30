@@ -1,18 +1,30 @@
-// r2.asl - Incinerator Agent
+// r2.asl - Incinerator/Vault Agent
 
 !iniciar.
 +!iniciar : true <-
-    .print("[r2] ============ INCINERATOR STARTING ============").
+    .print("[r2] ============ INCINERATOR/VAULT STARTING ============").
 
 // Burn upon request
 +!incinerate_garbage : true <-
     .print("[r2] Incineration task received...");
     .wait(500);
-    burn(garb);
-    .print("[r2] Garbage incinerated successfully!").
+    burn;
+    .print("[r2] Burn attempt finished.").
 
-// Burn garbage dropped at location
-+garbage(r2) <-
-    .print("[r2] Garbage detected at incinerator! Let's incinerate...");
-    burn(garb);
-    .print("[r2] Garbage incinerated successfully!").
+// Store upon request (Novo)
++!store_gold : true <-
+    .print("[r2] Store gold task received...");
+    .wait(500);
+    store; 
+    .print("[r2] Gold stored successfully!").
+
+// Automatic reaction to items
++item_at_incinerator(garbage) <-
+    .print("[r2] Garbage detected at location! Incinerating...");
+    burn;
+    .print("[r2] Burn attempt finished.").
+
++item_at_incinerator(gold) <-
+    .print("[r2] Gold detected at location! Storing...");
+    store;
+    .print("[r2] Gold stored successfully!").
