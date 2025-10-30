@@ -120,7 +120,7 @@ public class MarsEnv extends Environment {
     }
 
     void updatePercepts() {
-        clearPercepts("supervisor"); 
+        clearPercepts("coordinator"); 
         clearPercepts("r1");
         clearPercepts("r2");
         clearPercepts("r3");
@@ -132,7 +132,7 @@ public class MarsEnv extends Environment {
             Location loc = model.getAgPos(i);
             Literal posLit = Literal.parseLiteral("pos(" + agName + "," + loc.x + "," + loc.y + ")");
             addPercept(agName, posLit);
-            addPercept("supervisor", posLit);
+            addPercept("coordinator", posLit);
         }
 
         // Add perceptions for existing garbage
@@ -142,7 +142,7 @@ public class MarsEnv extends Environment {
                 boolean notAtIncinerator = !(x == r2Loc.x && y == r2Loc.y);
                 
                 if(model.hasObject(GARB, x, y) && notAtIncinerator){
-                    addPercept("supervisor", Literal.parseLiteral("garbage(" + x + "," + y + ")"));
+                    addPercept("coordinator", Literal.parseLiteral("garbage(" + x + "," + y + ")"));
                 }
             }
         }

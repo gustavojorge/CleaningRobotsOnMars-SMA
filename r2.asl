@@ -3,8 +3,9 @@
 !iniciar.
 +!iniciar : true <-
     .print("[r2] ============ INCINERATOR STARTING ============").
+
 // Burn upon request
-+!incinerar_lixo : true <-
++!incinerate_garbage : true <-
     .print("[r2] Incineration task received...");
     .wait(500);
     burn(garb);
