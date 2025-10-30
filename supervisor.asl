@@ -36,15 +36,13 @@
     .print("[supervisor]   r3 em (", X3, ",", Y3, ")");
     .print("[supervisor]   Incinerador em (", IX, ",", IY, ")");
     
-    // CORREÇÃO: Voltamos a usar a ação do ambiente (como no seu código antigo)
+    // 1. Chama a ação do ambiente
     compute_distances(X1, Y1, X3, Y3, GX, GY, IX, IY, D1, D3);
-
-    .print("[supervisor]   Distância r1: ", D1, " | Distância r3: ", D3);
-
-    // Marca o lixo como atribuído NO AMBIENTE
+    .wait(500);
+    // 2. Marca o lixo como atribuído NO AMBIENTE
     task_assigned(GX, GY);
     
-    // Chama planos de decisão separados
+    // 3. Chama planos de decisão (que agora imprimirão os valores)
     !decidir_e_enviar(GX, GY, IX, IY, D1, D3);
     
     .print("[supervisor]   Aguardando confirmação de conclusão da tarefa...");
@@ -52,11 +50,14 @@
 
 // 4.A. Decisão: r1 é mais próximo ou igual
 +!decidir_e_enviar(GX, GY, IX, IY, D1, D3) : D1 <= D3 <-
+    // --- CORREÇÃO: .print movido para cá ---
     .print("[supervisor] DECISÃO: Atribuindo para r1");
     .send(r1, achieve, coletar_lixo(GX, GY, IX, IY)).
 
 // 4.B. Decisão: r3 é mais próximo
 +!decidir_e_enviar(GX, GY, IX, IY, D1, D3) : D3 < D1 <-
+    // --- CORREÇÃO: .print movido para cá ---
+    .print("[supervisor]   Distância r1: ", D1, " | Distância r3: ", D3);
     .print("[supervisor] DECISÃO: Atribuindo para r3");
     .send(r3, achieve, coletar_lixo(GX, GY, IX, IY)).
 

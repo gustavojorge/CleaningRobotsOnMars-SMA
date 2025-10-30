@@ -4,6 +4,12 @@ import jason.environment.grid.GridWorldModel;
 import jason.environment.grid.GridWorldView;
 import jason.environment.grid.Location;
 
+// --- CORREÇÃO 1: Imports necessários para o Unifier ---
+import jason.asSemantics.Unifier;
+import jason.asSyntax.Term;
+import jason.asSyntax.NumberTermImpl;
+// --- Fim da Correção 1 ---
+
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.Graphics;
@@ -54,7 +60,9 @@ public class MarsEnv extends Environment {
                         model.burnGarb();
                     break;
                 }
+                // --- CORREÇÃO 1: Lógica do compute_distances ---
                 case "compute_distances": {
+                    // Extrai Posições
                     int x1 = (int) ((NumberTerm) action.getTerm(0)).solve();
                     int y1 = (int) ((NumberTerm) action.getTerm(1)).solve();
                     int x3 = (int) ((NumberTerm) action.getTerm(2)).solve();
@@ -64,19 +72,26 @@ public class MarsEnv extends Environment {
                     int ix = (int) ((NumberTerm) action.getTerm(6)).solve();
                     int iy = (int) ((NumberTerm) action.getTerm(7)).solve();
 
+                    // Extrai as *Variáveis* (D1, D3) que o agente enviou
+                    Term d1Var = action.getTerm(8);
+                    Term d3Var = action.getTerm(9);
+
+                    // Calcula
                     int d1 = Math.abs(x1 - gx) + Math.abs(y1 - gy) +
                              Math.abs(gx - ix) + Math.abs(gy - iy);
                     int d3 = Math.abs(x3 - gx) + Math.abs(y3 - gy) +
                              Math.abs(gx - ix) + Math.abs(gy - iy);
 
-                    // Atualiza percepções do supervisor
-                    clearPercepts("supervisor");
-                    addPercept("supervisor", Literal.parseLiteral("distance_r1(" + d1 + ")"));
-                    addPercept("supervisor", Literal.parseLiteral("distance_r3(" + d3 + ")"));
-
-                    logger.info("Distances calculated: D1=" + d1 + ", D3=" + d3);
+                    // Unifica (preenche) as variáveis D1 e D3 no agente
+                    Unifier unifier = new Unifier();
+                    unifier.unifies(d1Var, new NumberTermImpl(d1));
+                    unifier.unifies(d3Var, new NumberTermImpl(d3));
+                    
+                    // Removemos a lógica de addPercept daqui
+                    logger.info("Distances calculated and unified: D1=" + d1 + ", D3=" + d3);
                     break;
                 }
+                // --- Fim da Correção 1 ---
                 case "task_assigned": {
                     // marca lixo como atribuído para o supervisor
                     int gx = (int) ((NumberTerm) action.getTerm(0)).solve();
@@ -100,7 +115,12 @@ public class MarsEnv extends Environment {
     }
 
     void updatePercepts() {
-        clearPercepts();
+        // --- CORREÇÃO 2: Limpa percepções "fantasmas" dos agentes ---
+        clearPercepts(); // Limpa "default" (supervisor)
+        clearPercepts("r1");
+        clearPercepts("r2");
+        clearPercepts("r3");
+        // --- Fim da Correção 2 ---
 
         // Adiciona posições de todos os agentes
         for(int i=0; i<model.getNbOfAgs(); i++){
@@ -127,7 +147,8 @@ public class MarsEnv extends Environment {
             if(model.hasObject(GARB, loc)){
                 addPercept(agName, Literal.parseLiteral("garbage(" + loc.x + "," + loc.y + ")"));
             }
-            if(model.hasGarb[i]){
+            // Apenas r1 (id 0) e r3 (id 2) podem carregar lixo
+            if((i == 0 || i == 2) && model.hasGarb[i]){
                 addPercept(agName, Literal.parseLiteral("carrying(" + agName + ")"));
             }
 
