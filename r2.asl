@@ -1,17 +1,17 @@
-// r2.asl - Incinerador de lixo (Versão com Ação Real)
+// r2.asl - Incinerador de lixo (Versão Real)
 
 !iniciar.
 +!iniciar : true <-
     .print("[r2] === INCINERADOR INICIANDO ===").
 
-// Plano para incinerar quando o r1 ou r3 avisar
+// Queima ao receber comando
 +!incinerar_lixo : true <-
     .print("[r2] Recebido lixo para incineração...");
-    .wait(500); // Simula o tempo de queima
-    burn(garb); // Ação real de queimar
+    .wait(500);
+    burn(garb);
     .print("[r2] Lixo incinerado com sucesso!").
 
-// Plano reativo (Bônus): Se o lixo for solto na posição dele, ele queima
+// Queima lixo solto na posição dele
 +garbage(r2) <-
     .print("[r2] Lixo detectado na minha posição! Incinerando...");
     burn(garb);

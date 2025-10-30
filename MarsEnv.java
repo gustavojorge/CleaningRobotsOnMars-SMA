@@ -60,7 +60,6 @@ public class MarsEnv extends Environment {
                         model.burnGarb();
                     break;
                 }
-                // --- CORREÇÃO 1: Lógica do compute_distances ---
                 case "compute_distances": {
                     // Extrai Posições
                     int x1 = (int) ((NumberTerm) action.getTerm(0)).solve();
@@ -87,18 +86,20 @@ public class MarsEnv extends Environment {
                     unifier.unifies(d1Var, new NumberTermImpl(d1));
                     unifier.unifies(d3Var, new NumberTermImpl(d3));
                     
-                    // Removemos a lógica de addPercept daqui
                     logger.info("Distances calculated and unified: D1=" + d1 + ", D3=" + d3);
                     break;
                 }
-                // --- Fim da Correção 1 ---
-                case "task_assigned": {
-                    // marca lixo como atribuído para o supervisor
-                    int gx = (int) ((NumberTerm) action.getTerm(0)).solve();
-                    int gy = (int) ((NumberTerm) action.getTerm(1)).solve();
-                    model.lixoAtribuido[gx][gy] = true;
+                
+                // --- AÇÃO DE SINCRONIZAÇÃO ADICIONADA ---
+                case "sync_percepts": {
+                    // Esta ação não faz nada. 
+                    // Seu único propósito é forçar o ciclo updatePercepts()
+                    // a ser chamado no final do executeAction,
+                    // atualizando as crenças do supervisor.
                     break;
                 }
+                // --- FIM DA ADIÇÃO ---
+                
                 default: return false;
             }
         } catch(Exception e) {
@@ -116,13 +117,20 @@ public class MarsEnv extends Environment {
 
     void updatePercepts() {
         // --- CORREÇÃO 2: Limpa percepções "fantasmas" dos agentes ---
-        clearPercepts(); // Limpa "default" (supervisor)
+        
+        // --- ESTE É O BUG CORRIGIDO ---
+        // clearPercepts(); // Linha antiga e errada
+        clearPercepts("supervisor"); // Linha correta
+        // --- FIM DA CORREÇÃO ---
+
         clearPercepts("r1");
         clearPercepts("r2");
         clearPercepts("r3");
         // --- Fim da Correção 2 ---
 
         // Adiciona posições de todos os agentes
+        Location r2Loc = model.getAgPos(1); // Pega a posição do incinerador (r2)
+        
         for(int i=0; i<model.getNbOfAgs(); i++){
             String agName = "r"+(i+1);
             Location loc = model.getAgPos(i);
@@ -131,10 +139,14 @@ public class MarsEnv extends Environment {
             addPercept("supervisor", posLit);
         }
 
-        // Adiciona apenas lixo que ainda existe no grid e não foi atribuído
+        // Adiciona apenas lixo que ainda existe no grid
         for(int x=0; x<GSize; x++){
             for(int y=0; y<GSize; y++){
-                if(model.hasObject(GARB, x, y) && !model.lixoAtribuido[x][y]){
+                
+                // Verifica se o lixo NÃO ESTÁ na posição do incinerador (r2)
+                boolean notAtIncinerator = !(x == r2Loc.x && y == r2Loc.y);
+                
+                if(model.hasObject(GARB, x, y) && notAtIncinerator){
                     addPercept("supervisor", Literal.parseLiteral("garbage(" + x + "," + y + ")"));
                 }
             }
@@ -163,7 +175,6 @@ public class MarsEnv extends Environment {
         public static final int MErr = 2;
         int nerr;
         boolean[] hasGarb = new boolean[3];
-        boolean[][] lixoAtribuido = new boolean[GSize][GSize]; // nova matriz
         Random random = new Random(System.currentTimeMillis());
 
         private MarsModel() {
@@ -211,7 +222,7 @@ public class MarsEnv extends Environment {
 
         void dropGarb(String ag){
             int id = getAgentId(ag);
-            Location loc = getAgPos(id);
+            Location loc = getAgPos(id); 
             if(hasGarb[id]){
                 hasGarb[id] = false;
                 add(GARB, loc);
