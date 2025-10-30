@@ -1,49 +1,87 @@
-// supervisor.asl
+// supervisor.asl - Coordenador de coleta de lixo (100% AgentSpeak)
 
 !iniciar.
 
 +!iniciar <-
-    .print("=== Supervisor iniciando varredura ===");
+    .print("=== SUPERVISOR INICIANDO ===");
+    .print("Sistema de coleta inteligente ativado");
     !!monitorar.
 
+// Ciclo principal de monitoramento
 +!monitorar <-
     .wait(1000);
     .findall([X,Y], garbage(X,Y), Lixos);
-    .print("SUPERVISOR: lixos detectados = ", Lixos);
-    !processar_lista_lixos(Lixos);
+    !verificar_lixos(Lixos);
     !!monitorar.
 
-+!processar_lista_lixos([]). 
+// Verifica se há lixos e imprime informação
++!verificar_lixos(Lixos) : .length(Lixos, N) & N > 0 <-
+    .print(">>> Varredura: ", N, " item(ns) de lixo detectado(s)");
+    !processar_lista_lixos(Lixos).
+
++!verificar_lixos(Lixos) : .length(Lixos, 0) <-
+    .print(">>> Varredura: ambiente limpo, nenhum lixo detectado").
+
+// Caso base: lista vazia
++!processar_lista_lixos([]).
+
+// Caso recursivo: processa um lixo por vez
 +!processar_lista_lixos([L | Resto]) <-
     L = [GX, GY];
     !atribuir_coleta(GX, GY);
     .wait(500);
     !processar_lista_lixos(Resto).
 
-// --- CORREÇÃO NESTE PLANO ---
-// Movemos a aritmética 'is' para dentro da condição do .if
+// Atribuição inteligente baseada em distância Manhattan
++!atribuir_coleta(X, Y) : pos(r1, X1, Y1) & pos(r3, X3, Y3) & pos(r2, IX, IY) <-
+    .print("-------------------------------------------");
+    .print("ANÁLISE: Lixo em (", X, ",", Y, ")");
+    .print("  r1 em (", X1, ",", Y1, ")");
+    .print("  r3 em (", X3, ",", Y3, ")");
+    .print("  Incinerador em (", IX, ",", IY, ")");
+    
+    // Calcula distâncias Manhattan em AgentSpeak puro
+    !calcular_distancia(X1, Y1, X, Y, IX, IY, D1);
+    !calcular_distancia(X3, Y3, X, Y, IX, IY, D3);
+    
+    .print("  Distância total r1: ", D1, " passos");
+    .print("  Distância total r3: ", D3, " passos");
+    
+    // Decisão: chama plano apropriado baseado na menor distância
+    !decidir_coletor(X, Y, IX, IY, D1, D3).
 
-+!atribuir_coleta(X,Y) : pos(r1,X1,Y1) & pos(r3,X3,Y3) & pos(r2,X2,Y2) <-
-    .print("SUPERVISOR: atribuindo coleta para lixo em (", X, ",", Y, ")");
-    .print("SUPERVISOR: posições -> r1=(", X1, ",", Y1, "), r3=(", X3, ",", Y3, "), incinerador=(", X2, ",", Y2, ")");
+// Calcula distância Manhattan: (XR, YR) -> (GX, GY) -> (IX, IY)
++!calcular_distancia(XR, YR, GX, GY, IX, IY, Dist) <-
+    // Distância robô -> lixo
+    !abs(XR - GX, DX1);
+    !abs(YR - GY, DY1);
+    D1 = DX1 + DY1;
+    
+    // Distância lixo -> incinerador
+    !abs(GX - IX, DX2);
+    !abs(GY - IY, DY2);
+    D2 = DX2 + DY2;
+    
+    // Distância total
+    Dist = D1 + D2.
 
-    // CORREÇÃO:
-    // Em vez de calcular D1 e D3 separadamente, fazemos isso
-    // dentro da condição do .if, onde 'is' é 100% garantido de funcionar.
-    .if ( D1 is abs(X1 - X) + abs(Y1 - Y) + abs(X - X2) + abs(Y - Y2) &
-          D3 is abs(X3 - X) + abs(Y3 - Y) + abs(X - X2) + abs(Y - Y2) ) 
-    {
-        // D1 e D3 agora existem dentro deste bloco
-        .print("SUPERVISOR: total -> D1=", D1, " | D3=", D3);
+// Calcula valor absoluto
++!abs(N, Result) : N >= 0 <- Result = N.
++!abs(N, Result) : N < 0 <- Result = -N.
 
-        .if (D1 =< D3) {
-            .print("SUPERVISOR -> Atribuindo coleta (", X, ",", Y, ") para r1 (D1=", D1, ").");
-            .send(r1, tell, coleta(X,Y,X2,Y2));
-        } .else {
-            .print("SUPERVISOR -> Atribuindo coleta (", X, ",", Y, ") para r3 (D3=", D3, ").");
-            .send(r3, tell, coleta(X,Y,X2,Y2));
-        }.
-    } .else {
-        // Este 'else' só aconteceria se a aritmética falhasse (o que não deve)
-        .print("SUPERVISOR: ERRO no calculo de distancia.");
-    }.
+// Se r1 tem menor ou igual distância
++!decidir_coletor(X, Y, IX, IY, D1, D3) : D1 <= D3 <-
+    .print("DECISÃO: r1 selecionado (distância: ", D1, ")");
+    .send(r1, tell, coleta(X, Y, IX, IY));
+    .print("-------------------------------------------").
+
+// Se r3 tem menor distância
++!decidir_coletor(X, Y, IX, IY, D1, D3) : D3 < D1 <-
+    .print("DECISÃO: r3 selecionado (distância: ", D3, ")");
+    .send(r3, tell, coleta(X, Y, IX, IY));
+    .print("-------------------------------------------").
+
+// Tratamento de erro caso não encontre posições
++!atribuir_coleta(X, Y) <-
+    .print("ERRO: Não foi possível determinar posições para atribuição");
+    .print("  Lixo em (", X, ",", Y, ")").
