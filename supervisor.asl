@@ -9,9 +9,6 @@
 
 // Main loop: process one garbage item at a time
 +!processar_proximo_lixo <-
-    // Force perception sync
-    // This action forces the agent to read the latest state from MarsEnv
-    // BEFORE running .findall, clearing "ghost" garbage.
     sync_percepts; 
     
     .findall([X,Y], garbage(X,Y), TodosLixos);
@@ -38,32 +35,30 @@
     
     .print("-----------------------------------------------------------------------------------");
     .print("[supervisor] PROCESSING: Garbage at (", X, ",", Y, ")");
-    .print("[supervisor]   r1 at (", X1, ",", Y1, ")");
-    .print("[supervisor]   r3 at (", X3, ",", Y3, ")");
+    .print("[supervisor] r1 at (", X1, ",", Y1, ")");
+    .print("[supervisor] r3 at (", X3, ",", Y3, ")");
     
     // Calculate distances
     !calcular_dist(X1,Y1,X,Y,IX,IY,D1);
     !calcular_dist(X3,Y3,X,Y,IX,IY,D3);
-    .print("[supervisor]   Distance r1: ", D1, " | r3: ", D3);
+    .print("[supervisor] Distance r1: ", D1, " | r3: ", D3);
     
     // Decide and dispatch
     !decidir_e_enviar(X,Y,IX,IY,D1,D3);
     
     // Wait for completion message
-    .print("[supervisor]   Waiting for completion...");
+    .print("[supervisor] Waiting for completion...");
     .wait(concluido(X,Y), 60000);
     
     // Clean up states
     -concluido(X,Y); 
-    -processando(X,Y); // Free up this garbage ID
+    -processando(X,Y);
     
     .print("[supervisor] Task (",X,",",Y,") complete");
     .print("-----------------------------------------------------------------------------------");
     
-    // Short delay for robots to finish moving
     .wait(1000);
     
-    // Process next
     !!processar_proximo_lixo.
 
 // Plan: Calculate Manhattan distance
@@ -86,13 +81,9 @@
     .print("[supervisor] DECISION: Assigning to r3");
     .send(r3, achieve, coletar_lixo(X,Y,IX,IY)).
 
-// --- CORREÇÃO DO BUG DE TIMEOUT ---
-// Este plano é acionado pela MENSAGEM do robô.
-// Ele deve ADICIONAR a CRENÇA que o plano .wait está esperando.
 +concluido(X,Y)[source(Ag)] <-
     .print("[supervisor] Confirmation from ", Ag, " for (",X,",",Y,")");
-    +concluido(X,Y). // ADICIONA A CRENÇA para satisfazer o .wait
-// --- FIM DA CORREÇÃO ---
+    +concluido(X,Y). 
 
 // Fallback plan: Error finding agent positions
 +!processar_lixo(X,Y) <-

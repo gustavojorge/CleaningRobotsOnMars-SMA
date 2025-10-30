@@ -17,13 +17,9 @@ import java.util.logging.Logger;
 
 public class MarsEnv extends Environment {
 
-    public static final int GSize = 7;       // grid size
-    public static final int GARB = 16;       // garbage code in grid model
+    public static final int GSize = 7;       
+    public static final int GARB = 16;       
     
-    // --- CORREÇÃO: Códigos ANSI removidos ---
-    // public static final String ANSI_RESET = "\u001B[0m";
-    // public static final String ANSI_GREEN = "\u001B[32m";
-
     static Logger logger = Logger.getLogger(MarsEnv.class.getName());
 
     private MarsModel model;
@@ -39,7 +35,6 @@ public class MarsEnv extends Environment {
 
     @Override
     public boolean executeAction(String ag, Structure action) {
-        // --- CORREÇÃO: Log limpo, sem cor e sem duplicata ---
         logger.info(ag + " doing: " + action);
         try {
             switch(action.getFunctor()) {
@@ -65,7 +60,6 @@ public class MarsEnv extends Environment {
                     break;
                 }
                 case "compute_distances": {
-                    // Extract Positions
                     int x1 = (int) ((NumberTerm) action.getTerm(0)).solve();
                     int y1 = (int) ((NumberTerm) action.getTerm(1)).solve();
                     int x3 = (int) ((NumberTerm) action.getTerm(2)).solve();
@@ -79,7 +73,6 @@ public class MarsEnv extends Environment {
                     Term d1Var = action.getTerm(8);
                     Term d3Var = action.getTerm(9);
 
-                    // Calculate
                     int d1 = Math.abs(x1 - gx) + Math.abs(y1 - gy) +
                              Math.abs(gx - ix) + Math.abs(gy - iy);
                     int d3 = Math.abs(x3 - gx) + Math.abs(y3 - gy) +
@@ -90,14 +83,11 @@ public class MarsEnv extends Environment {
                     unifier.unifies(d1Var, new NumberTermImpl(d1));
                     unifier.unifies(d3Var, new NumberTermImpl(d3));
                     
-                    // --- CORREÇÃO: Log limpo ---
                     logger.info("Distances calculated and unified: D1=" + d1 + ", D3=" + d3);
                     break;
                 }
                 
-                // --- SYNC ACTION ---
                 case "sync_percepts": {
-                    // This action does nothing.
                     break;
                 }
                 
@@ -108,9 +98,8 @@ public class MarsEnv extends Environment {
             return false;
         }
 
-        // --- R2 VISUAL FIX ---
-        Location r2Loc = model.getAgPos(1); // r2's location (3,3)
-        if (model.isFree(r2Loc)) { // If r1/r3 just moved off
+        Location r2Loc = model.getAgPos(1); 
+        if (model.isFree(r2Loc)) {
             try {
                 model.setAgPos(1, r2Loc); 
             } catch (Exception e) {}
@@ -124,19 +113,13 @@ public class MarsEnv extends Environment {
         return true;
     }
 
-    /**
-     * This method is crucial for synchronizing the agents' beliefs with the model.
-     * It clears all old percepts and adds only the current ones.
-     */
     void updatePercepts() {
-        // --- PERCEPTION CLEANUP ---
-        clearPercepts("supervisor"); // Correct line: Clears supervisor's old percepts
+        clearPercepts("supervisor"); 
         clearPercepts("r1");
         clearPercepts("r2");
         clearPercepts("r3");
 
-        // Add agent positions
-        Location r2Loc = model.getAgPos(1); // Get incinerator (r2) location
+        Location r2Loc = model.getAgPos(1); // Get incinerator location
         
         for(int i=0; i<model.getNbOfAgs(); i++){
             String agName = "r"+(i+1);
@@ -184,7 +167,7 @@ public class MarsEnv extends Environment {
         Random random = new Random(System.currentTimeMillis());
 
         private MarsModel() {
-            super(GSize, GSize, 3); // 3 agents
+            super(GSize, GSize, 3); 
 
             try {
                 setAgPos(0, 0, 0);        // r1
@@ -192,7 +175,6 @@ public class MarsEnv extends Environment {
                 setAgPos(2, GSize-1, GSize-1);  // r3
             } catch(Exception e){ e.printStackTrace(); }
 
-            // Add initial garbage
             add(GARB, 3, 0);
             add(GARB, 1, 2);
             add(GARB, 5, 4);
@@ -201,7 +183,7 @@ public class MarsEnv extends Environment {
         }
 
         void moveTowards(String ag, int x, int y) throws Exception {
-            if(ag.equals("r2")) return;  // r2 is stationary
+            if(ag.equals("r2")) return; // r2 (incinerator) does not move
 
             int id = getAgentId(ag);
             Location loc = getAgPos(id);
@@ -218,11 +200,9 @@ public class MarsEnv extends Environment {
                     remove(GARB, loc);
                     nerr=0;
                     hasGarb[id] = true;
-                    // --- CORREÇÃO: Log limpo ---
                     logger.info(ag + " picked garbage at ("+loc.x+","+loc.y+")");
                 } else {
                     nerr++;
-                    // --- CORREÇÃO: Log limpo ---
                     logger.info(ag + " failed to pick garbage (attempt "+nerr+"/"+MErr+")");
                 }
             }
@@ -234,7 +214,6 @@ public class MarsEnv extends Environment {
             if(hasGarb[id]){
                 hasGarb[id] = false;
                 add(GARB, loc);
-                // --- CORREÇÃO: Log limpo ---
                 logger.info(ag + " dropped garbage at ("+loc.x+","+loc.y+")");
             }
         }
@@ -243,7 +222,6 @@ public class MarsEnv extends Environment {
             Location r2Loc = getAgPos(1); // r2's location
             if(hasObject(GARB, r2Loc)){
                 remove(GARB, r2Loc);
-                // --- CORREÇÃO: Log limpo ---
                 logger.info("r2 burned garbage at (" + r2Loc.x + "," + r2Loc.y + ")");
             }
         }
@@ -254,7 +232,7 @@ public class MarsEnv extends Environment {
                 case "r2": return 1;
                 case "r3": return 2;
             }
-            return 0; // Default
+            return 0;
         }
     }
 
@@ -275,13 +253,10 @@ public class MarsEnv extends Environment {
         public void drawAgent(Graphics g, int x, int y, Color c, int id){
             String label = "R" + (id+1);
             
-            // --- CORREÇÃO DAS CORES DO GRID ---
-            // Assegura que as cores pedidas sejam usadas
-            if(id==1){ c=Color.red; label="R2"; } // R2 Vermelho
-            else if(id==0){ c=Color.yellow; label="R1"; } // R1 Amarelo
-            else if(id==2){ c=Color.magenta; label="R3"; } // R3 Roxo/Magenta
-            // --- FIM DA CORREÇÃO ---
-            
+            if(id==1){ c=Color.red; label="R2"; }
+            else if(id==0){ c=Color.yellow; label="R1"; } 
+            else if(id==2){ c=Color.magenta; label="R3"; }
+
             super.drawAgent(g, x, y, c, -1);
             g.setColor(Color.black);
             super.drawString(g, x, y, defaultFont, label);

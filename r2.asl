@@ -4,14 +4,14 @@
 +!iniciar : true <-
     .print("[r2] === INCINERATOR STARTING ===").
 
-// Plan: Burn upon request
+// Burn upon request
 +!incinerar_lixo : true <-
     .print("[r2] Incineration task received...");
     .wait(500);
     burn(garb);
     .print("[r2] Garbage incinerated successfully!").
 
-// Plan: Burn garbage dropped at location
+// Burn garbage dropped at location
 +garbage(r2) <-
     .print("[r2] Garbage detected at incinerator! Let's incinerate...");
     burn(garb);
